@@ -1,0 +1,61 @@
+name: Deploy Next.js Frontend
+
+on:
+  push:
+    tags: ["v*.*.*"]
+
+env:
+  REGISTRY: ghrc.io
+  IMAGE_NAME: ${{ github.repository}}
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to the Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{env.REGISTRY}}
+          username: ${{github.actor}}
+          password: ${{secrets.GITHUB_TOKEN}}
+
+      - name: Extract metadata from docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{env.REGISTRY}}/${{env.IMAGE_NAME}}
+          tags: |
+            type=semver.pattern={{version}}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{steps.meta.outputs.tags }}
+          labels: ${{steps.meta.outputs.labels}}
+
+      - name: Deploy to droplet by SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{secrets.DROPLET_IP}}
+          username: ${{secrets.DROPLET_USER}}
+          key: ${{secrets.DROPLET_SSH_KEY}}
+          script: |
+            cd /opt/app
+
+            NEW_VERSION=${{github.ref_name}}
+
+            sed -i "s/^FRONTEND_VERSION=.*/FRONTEND_VERSION=$NEW_VERSION/" .env
+
+
+            docker compose pull frontend
+
+            docker compose up -d frontend
