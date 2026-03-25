@@ -1,0 +1,33 @@
+name: Frontend Manual Deploy
+on:
+  workflow_dispatch:
+    inputs:
+      build_number:
+        description: "The Frontend Build Number to deploy (e.g., 42)"
+        required: true
+        type: string
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to droplet by SSH
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          BUILD_VERSION: ${{ inputs.build_number }}
+        with:
+          host: ${{ secrets.DROPLET_IP }}
+          username: ${{ secrets.DROPLET_USER }}
+          key: ${{ secrets.DROPLET_SSH_KEY }}
+          envs: BUILD_VERSION
+          script: |
+            cd /opt/app
+
+            # Update the image tag in .env so docker compose picks up the new version
+            sed -i "s/^FRONTEND_VERSION=.*/FRONTEND_VERSION=${BUILD_VERSION}/" .env
+
+            # Pull the newly published image for this specific build number
+            docker compose pull frontend
+
+            # Restart the app container with the new image
+            docker compose up -d frontend
