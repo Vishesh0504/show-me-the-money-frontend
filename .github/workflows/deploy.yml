@@ -21,7 +21,7 @@ jobs:
           key: ${{ secrets.DROPLET_SSH_KEY }}
           envs: BUILD_VERSION
           script: |
-            cd /opt/app
+            cd /opt/show-me-the-money
 
             # Update the image tag in .env so docker compose picks up the new version
             sed -i "s/^FRONTEND_VERSION=.*/FRONTEND_VERSION=${BUILD_VERSION}/" .env
