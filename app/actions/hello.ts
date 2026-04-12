@@ -1,6 +1,23 @@
 "use server";
 
+import { headers } from "next/headers";
 import { API_CONFIG } from "@/lib/config";
+
+async function getRequestOrigin(): Promise<string> {
+  const requestHeaders = await headers();
+  const host =
+    requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host");
+
+  if (!host) {
+    return "http://localhost:3000";
+  }
+
+  const protocol =
+    requestHeaders.get("x-forwarded-proto") ??
+    (host.includes("localhost") ? "http" : "https");
+
+  return `${protocol}://${host}`;
+}
 
 export type HelloWorldResponse =
   | {
@@ -12,7 +29,9 @@ export type HelloWorldResponse =
 
 export async function getHelloWorld(): Promise<HelloWorldResponse> {
   try {
-    const url = `${API_CONFIG.BASE_URL}${API_CONFIG.endpoints.hello}`;
+    const apiPath = `${API_CONFIG.BASE_URL}${API_CONFIG.endpoints.hello}`;
+    const origin = await getRequestOrigin();
+    const url = new URL(apiPath, origin).toString();
     console.log(`Fetching from: ${url}`);
 
     const res = await fetch(url, {
